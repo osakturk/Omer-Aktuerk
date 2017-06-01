@@ -1,0 +1,87 @@
+vid = videoinput('macvideo',1);
+set(vid, 'FramesPerTrigger', Inf);
+set(vid, 'ReturnedColorspace', 'rgb')
+vid.FrameGrabInterval = 3;
+s = serial('/dev/cu.HC-06-DevB','BaudRate',115200);
+fopen(s);
+start(vid)
+i=1;
+q=1;
+c='A';
+min=5500;
+max=10500;
+while(i<=300)
+i=i+1;
+obj_found=0;
+data = getsnapshot(vid);
+[y x c]=size(data);
+x1=x/2;
+x2=x1-40;
+x3=x1+40;
+
+diff_im = imsubtract(data(:,:,1), rgb2gray(data));
+diff_im = medfilt2(diff_im, [3 3]);
+diff_im = im2bw(diff_im,0.18);
+diff_im = bwareaopen(diff_im,100);
+bw = bwlabel(diff_im, 8);
+stats = regionprops(bw, 'all');
+imshow(data)
+hold on
+for object = 1:length(stats)
+obj_found=1;
+bb = stats(object).BoundingBox;
+bc = stats(object).Centroid;
+ar=stats(object).Area;
+rectangle('Position',bb,'EdgeColor','r','LineWidth',2)
+plot(bc(1),bc(2), '-m+')
+pix=((((ar<=max)&(ar>=min))*2)+((ar>max)*4)+((ar<min)*5)); 
+if (bc(1)>x2)&(bc(1)<x3)
+disp('ortada')
+switch (pix)
+case 2
+r=1;
+case 4
+r=4;
+case 5
+r=5;
+end
+else if bc(1)<x2 
+        r=2; 
+        disp('sol') 
+else if bc(1)>x3
+r=3;
+disp('sað');
+else
+end
+end
+end
+y1=1:y;
+plot(x2,y1);
+plot(x3,y1);
+switch(r)
+case 1
+fwrite(s,'C');
+case 2
+fwrite(s,'R');
+case 3
+fwrite(s,'L');
+case 4
+fwrite(s,'B');
+case 5
+fwrite(s,'F');
+otherwise
+fwrite(s,'N');
+end
+end
+if obj_found == 0
+fwrite(s,'C');
+disp('nesne yok')
+end
+hold off
+end
+fwrite(s,'C');
+stop(vid);
+flushdata(vid);
+fclose(s);
+clear all
+clc
